@@ -1,0 +1,1627 @@
+import React, { useState, useRef, useEffect } from "react";
+import { ShieldCheck, ShieldAlert, ShieldQuestion, Sparkles, Landmark, MessageCircle, Mic, ArrowRight, Phone, ChevronRight, ChevronLeft, TrendingUp, HelpCircle, User, Smartphone, Check, Send, IndianRupee, RotateCcw, Home, Wallet, PiggyBank, Target, Receipt } from "lucide-react";
+
+// ============================================================================
+// GOOGLE SHEETS BACKEND (free) — one-time setup, ~5 minutes:
+// 1. Go to sheets.google.com → create a new blank spreadsheet (name it anything).
+// 2. Extensions → Apps Script. Delete the placeholder code and paste the script
+//    from the "google-apps-script.gs" file provided alongside this app.
+// 3. Click Deploy → New deployment → type "Web app".
+//    - Execute as: Me
+//    - Who has access: Anyone
+// 4. Click Deploy, authorize the permissions Google asks for.
+// 5. Copy the Web app URL (it ends in /exec) and paste it below, replacing
+//    the placeholder string. Save this file — that's it, data now persists.
+// Until you paste a real URL, the app runs normally on local memory only
+// (nothing breaks — cloud sync is simply skipped).
+// ============================================================================
+const SHEETS_API_URL = "PASTE_YOUR_WEB_APP_URL_HERE";
+const CLOUD_SYNC_ENABLED = SHEETS_API_URL.indexOf("PASTE_YOUR") === -1;
+
+const LANGUAGES = [
+  { code: "hi", native: "हिन्दी", label: "Hindi" },
+  { code: "te", native: "తెలుగు", label: "Telugu" },
+  { code: "en", native: "English", label: "English" },
+];
+
+const T = {
+  hi: {
+    chooseLangTitle: "अपनी भाषा चुनें", continueBtn: "आगे बढ़ें",
+    regTitle: "पंजीकरण", regSub: "शुरू करने के लिए अपनी जानकारी दें",
+    nameLabel: "आपका नाम", namePh: "जैसे: लक्ष्मी देवी",
+    mobileLabel: "मोबाइल नंबर", mobilePh: "10 अंकों का नंबर",
+    sendOtp: "OTP भेजें", otpSentTo: "OTP भेजा गया",
+    otpLabel: "OTP दर्ज करें", otpPh: "6 अंकों का OTP", otpHint: "डेमो OTP: 123456",
+    verifyBtn: "सत्यापित करें और पंजीकरण करें",
+    navChat: "चैट", navScam: "स्कैम जांच", navScheme: "योजनाएं", navAaina: "आइना", navSend: "पैसे भेजें", navHome: "होम",
+    homeGreetTitle: "मनी मित्र कहते हैं", homeGreetBody: "नमस्ते! आज अपना इमरजेंसी फंड जांचने का अच्छा दिन है।",
+    healthScoreLabel: "वित्तीय स्वास्थ्य स्कोर", howToImprove: "कैसे सुधारें →",
+    improveTitle: "अपना स्कोर कैसे सुधारें", improveSub: "आपकी सबसे कमजोर जगह से शुरुआत करें",
+    closeBtn: "बंद करें",
+    tipIncomeTitle: "आय", tipIncome: "एक साइड इनकम या पार्ट-टाइम काम जोड़ें ताकि नकदी प्रवाह स्थिर रहे।",
+    tipSavingsTitle: "बचत", tipSavings: "पेडे के तुरंत बाद एक तय राशि ऑटोमेट करें — ₹50/हफ्ता भी जुड़ता जाता है।",
+    tipGoalsTitle: "लक्ष्य", tipGoals: "'+ नया लक्ष्य' से एक स्पष्ट लक्ष्य और मासिक योजना तय करें।",
+    savingsGoalsLabel: "बचत और लक्ष्य", tipSavingsGoalsTitle: "बचत और लक्ष्य",
+    tipSavingsGoals: "अपनी आय का बड़ा हिस्सा बचत या लक्ष्यों में लगाएं — जितना ज्यादा हिस्सा, उतना बेहतर स्कोर। '+ नया लक्ष्य' से शुरू करें।",
+    tipExpensesTitle: "खर्च", tipExpenses: "2 हफ्ते अपने खर्च को ट्रैक करें — छोटे बार-बार होने वाले खर्च सबसे ज्यादा असर डालते हैं।",
+    incomeLabel: "आय", savingsLabel: "बचत", goalsLabel: "लक्ष्य", expensesLabel: "खर्च",
+    quickActionsLabel: "त्वरित कार्य", welcomeBack: "वापसी पर स्वागत है",
+    helpTitle: "सहायता और समर्थन", helpSub: "हम आपके लिए यहाँ हैं",
+    faqTitle: "अक्सर पूछे जाने वाले सवाल",
+    faqQ1: "मैं किसी ऑफर को स्कैम के लिए कैसे जांचूं?", faqA1: "'स्कैम जांच' टैब खोलें, संदेश पेस्ट करें, और तुरंत जवाब पाएं।",
+    faqQ2: "पैसे भेजने पर कितना शुल्क लगता है?", faqA2: "ArthaBot (UPI) से भेजने पर कोई शुल्क नहीं — रेमिटेंस शॉप से सस्ता।",
+    faqQ3: "अगर OTP नहीं आया तो क्या करें?", faqA3: "'Resend OTP' दबाएं या नीचे 'इंसान से बात करें' चुनें।",
+    talkHuman: "इंसान से बात करें", callbackInfo: "हम 4 कार्य घंटों के भीतर कॉलबैक करेंगे",
+    helpFab: "मदद",
+    expectedReturnLabel: "अपेक्षित वार्षिक रिटर्न",
+    investmentOptionsLabel: "निवेश विकल्प",
+    optSafeName: "RD / PPF (सुरक्षित)", optSafeDesc: "गारंटीड, कम जोखिम — बैंक RD या पब्लिक प्रोविडेंट फंड",
+    optBalName: "डेट म्यूचुअल फंड", optBalDesc: "स्थिर वृद्धि, मध्यम जोखिम — डेट या बैलेंस्ड फंड",
+    optGrowName: "इक्विटी SIP", optGrowDesc: "उच्च वृद्धि क्षमता, बाजार जोखिम — इक्विटी म्यूचुअल फंड SIP",
+    optAggName: "इंडेक्स फंड SIP", optAggDesc: "आक्रामक वृद्धि — इंडेक्स या ग्रोथ फंड, लंबी अवधि के लिए",
+    savedGoalsLabel: "आपके लक्ष्य", noGoalsYet: "अभी तक कोई लक्ष्य नहीं — एक जोड़ें!", perMonth: "/माह",
+    currentGoalLabel: "आपका मौजूदा लक्ष्य", viewAllLabel: "सभी देखें →",
+    historyLabel: "इतिहास", sendTab: "भेजें", historyTab: "इतिहास", noHistoryYet: "अभी तक कोई लेनदेन नहीं", toLabel: "प्रति",
+    navInvest: "निवेश", invTitle: "निवेश खोजें", invSub: "अपना बजट, रिटर्न और लक्ष्य डालें",
+    monthlyAmountLabel: "हर महीने निवेश राशि", monthlyAmountPh: "₹ राशि दर्ज करें",
+    timeRequiredLabel: "लगभग समय लगेगा", legalOptionsLabel: "उपलब्ध वैध निवेश विकल्प",
+    matchBadge: "आपके अनुमान से मेल खाता है", riskLabelSafe: "सुरक्षित", riskLabelLow: "कम-मध्यम",
+    riskLabelMod: "मध्यम", riskLabelMkt: "बाजार-आधारित", monthsShort: "माह", yearsShort: "वर्ष",
+    ratePerAnnum: "प्रति वर्ष", fillAllFields: "गणना देखने के लिए सभी फ़ील्ड भरें",
+    navFinances: "मेरा पैसा", financesTitle: "मेरी वित्तीय जानकारी", financesSub: "अपनी सही स्कोर देखने के लिए भरें",
+    incomePh: "मासिक आय दर्ज करें", savingsPh: "मासिक बचत दर्ज करें", expensesPh: "मासिक खर्च दर्ज करें",
+    saveFinancesBtn: "सहेजें और स्कोर देखें", overBudgetWarning: "यह आपकी आय से ज्यादा है — संख्या जांचें",
+    setupPromptTitle: "अपनी असली स्कोर देखें", setupPromptBody: "अपनी आय, बचत और खर्च डालें →",
+    newGoalBtn: "+ नया लक्ष्य", goalSetupTitle: "लक्ष्य सेटअप", goalSetupSub: "अपना अगला लक्ष्य बनाएं",
+    goalNameLabel: "लक्ष्य का नाम", goalNamePh: "जैसे: बेटी की स्कूल फीस",
+    goalAmountLabel: "कितनी राशि चाहिए", goalAmountPh: "₹ राशि दर्ज करें",
+    goalDateLabel: "लक्ष्य तिथि", monthsLeftLabel: "महीने बचे हैं",
+    monthlyLabel: "हर महीने बचाएं / निवेश करें", setGoalBtn: "लक्ष्य सेट करें",
+    goalSuccessTitle: "लक्ष्य सेट हो गया!", goalSuccessSub: "आपका मासिक लक्ष्य तय हो गया है", doneBtnGoal: "पूर्ण",
+    sendTitle: "पैसे भेजें", sendSub: "सुरक्षित रूप से घर पैसे भेजें",
+    recipientLabel: "प्राप्तकर्ता का नाम / मोबाइल", recipientPh: "जैसे: राम शंकर, 98xxxxxx10",
+    amountLabel: "राशि", amountPh: "₹ राशि दर्ज करें",
+    feeCompareTitle: "आप कितना बचाते हैं", shopFeeLabel: "रेमिटेंस शॉप शुल्क", appFeeLabel: "ArthaBot (UPI) शुल्क",
+    feeSourceNote: "औसत 4.6% — घरेलू भारतीय रेमिटेंस पर CGAP/IFMR-RBI अध्ययन के आधार पर",
+    sendBtn: "पैसे भेजें", reviewBtn: "समीक्षा करें और भेजें",
+    successTitle: "सफलतापूर्वक भेजा गया!", successSub: "पैसा तुरंत पहुंच गया, कोई शुल्क नहीं लगा",
+    doneBtn: "पूर्ण", newTransfer: "एक और भेजें",
+    chatTitle: "मनी मित्र", chatSub: "ArthaBot • हिन्दी",
+    showEnglish: "अंग्रेज़ी दिखाएं", typeHint: "टाइप करें या बोलने के लिए दबाएं…",
+    scamTitle: "स्कैम जांच", scamSub: "कोई भी ऑफर भेजकर जांचें",
+    tryExample: "एक उदाहरण आज़माएं, या अपना पेस्ट करें:", scamPh: "यहाँ संदिग्ध संदेश पेस्ट करें…",
+    checking: "रजिस्ट्री से मिलान हो रहा है…", checkBtn: "इस ऑफर की जांच करें",
+    why: "क्यों?", human: "0 — इंसान",
+    schemeTitle: "योजना जांच", schemeSub: "अधिकतम 8 सवाल", qLabel: "सवाल",
+    resultIntro: "आपके जवाबों के आधार पर, आप इनके लिए पात्र हो सकते हैं:", startOver: "फिर से शुरू करें",
+    aainaTitle: "आइना", aainaSub: "आपका मासिक दो भविष्य",
+    goalLabel: "लक्ष्य: बेटी की स्कूल फीस दिवाली तक",
+    todayCol: "आज की तरह चलें", stepCol: "एक कदम उठाएं", savedBy: "दिवाली तक बचत",
+    saveExtra: "हर हफ्ते अतिरिक्त बचाएं", setNudge: "यह बचत रिमाइंडर सेट करें",
+    onceMonth: "जानबूझकर महीने में एक बार दिखाया जाता है — कोई और सूचना नहीं।",
+  },
+  te: {
+    chooseLangTitle: "మీ భాషను ఎంచుకోండి", continueBtn: "కొనసాగించండి",
+    regTitle: "నమోదు", regSub: "ప్రారంభించడానికి మీ వివరాలు ఇవ్వండి",
+    nameLabel: "మీ పేరు", namePh: "ఉదా: లక్ష్మి",
+    mobileLabel: "మొబైల్ నంబర్", mobilePh: "10 అంకెల నంబర్",
+    sendOtp: "OTP పంపండి", otpSentTo: "OTP పంపబడింది",
+    otpLabel: "OTP నమోదు చేయండి", otpPh: "6 అంకెల OTP", otpHint: "డెమో OTP: 123456",
+    verifyBtn: "ధృవీకరించి నమోదు చేయండి",
+    navChat: "చాట్", navScam: "మోసం తనిఖీ", navScheme: "పథకాలు", navAaina: "ఆయినా", navSend: "డబ్బు పంపండి", navHome: "హోమ్",
+    homeGreetTitle: "మనీ మిత్ర చెప్తున్నారు", homeGreetBody: "నమస్తే! ఈరోజు మీ ఎమర్జెన్సీ ఫండ్ చూసుకోవడానికి మంచి రోజు.",
+    healthScoreLabel: "ఆర్థిక ఆరోగ్య స్కోర్", howToImprove: "ఎలా మెరుగుపరచాలి →",
+    improveTitle: "మీ స్కోర్‌ని ఎలా మెరుగుపరచాలి", improveSub: "మీ బలహీనమైన ప్రాంతం నుండి ప్రారంభించండి",
+    closeBtn: "మూసివేయండి",
+    tipIncomeTitle: "ఆదాయం", tipIncome: "స్థిరమైన నగదు ప్రవాహం కోసం సైడ్ ఇన్‌కమ్ లేదా పార్ట్-టైమ్ పని జోడించండి.",
+    tipSavingsTitle: "పొదుపు", tipSavings: "పేడే తర్వాత వెంటనే ఒక స్థిర మొత్తాన్ని ఆటోమేట్ చేయండి — వారానికి ₹50 కూడా పెరుగుతుంది.",
+    tipGoalsTitle: "లక్ష్యాలు", tipGoals: "'+ కొత్త లక్ష్యం' ఉపయోగించి స్పష్టమైన లక్ష్యం మరియు నెలవారీ ప్రణాళిక సెట్ చేయండి.",
+    savingsGoalsLabel: "పొదుపు & లక్ష్యాలు", tipSavingsGoalsTitle: "పొదుపు & లక్ష్యాలు",
+    tipSavingsGoals: "మీ ఆదాయంలో ఎక్కువ భాగాన్ని పొదుపు లేదా లక్ష్యాలలో పెట్టండి — ఎక్కువ భాగం, మంచి స్కోర్. '+ కొత్త లక్ష్యం' తో ప్రారంభించండి.",
+    tipExpensesTitle: "ఖర్చులు", tipExpenses: "2 వారాలు మీ ఖర్చులను ట్రాక్ చేయండి — చిన్న పునరావృత ఖర్చులే ఎక్కువ ప్రభావం చూపుతాయి.",
+    incomeLabel: "ఆదాయం", savingsLabel: "పొదుపు", goalsLabel: "లక్ష్యాలు", expensesLabel: "ఖర్చులు",
+    quickActionsLabel: "త్వరిత చర్యలు", welcomeBack: "తిరిగి స్వాగతం",
+    helpTitle: "సహాయం & మద్దతు", helpSub: "మేము మీ కోసం ఇక్కడ ఉన్నాము",
+    faqTitle: "తరచుగా అడిగే ప్రశ్నలు",
+    faqQ1: "ఆఫర్‌ని మోసంగా ఎలా తనిఖీ చేయాలి?", faqA1: "'మోసం తనిఖీ' ట్యాబ్ తెరవండి, సందేశం పేస్ట్ చేయండి, తక్షణ సమాధానం పొందండి.",
+    faqQ2: "డబ్బు పంపడానికి ఎంత ఫీజు?", faqA2: "ArthaBot (UPI) ద్వారా ఎలాంటి ఫీజు లేదు — రెమిటెన్స్ షాప్ కంటే చౌక.",
+    faqQ3: "OTP రాకపోతే ఏం చేయాలి?", faqA3: "'Resend OTP' నొక్కండి లేదా క్రింద 'మనిషితో మాట్లాడండి' ఎంచుకోండి.",
+    talkHuman: "మనిషితో మాట్లాడండి", callbackInfo: "మేము 4 పని గంటల్లో కాల్‌బ్యాక్ చేస్తాము",
+    helpFab: "సహాయం",
+    expectedReturnLabel: "అంచనా వార్షిక రాబడి",
+    investmentOptionsLabel: "పెట్టుబడి ఎంపికలు",
+    optSafeName: "RD / PPF (సురక్షితం)", optSafeDesc: "గ్యారంటీడ్, తక్కువ రిస్క్ — బ్యాంక్ RD లేదా పబ్లిక్ ప్రావిడెంట్ ఫండ్",
+    optBalName: "డెట్ మ్యూచువల్ ఫండ్", optBalDesc: "స్థిరమైన వృద్ధి, మధ్యస్థ రిస్క్ — డెట్ లేదా బ్యాలెన్స్‌డ్ ఫండ్",
+    optGrowName: "ఈక్విటీ SIP", optGrowDesc: "అధిక వృద్ధి సామర్థ్యం, మార్కెట్ రిస్క్ — ఈక్విటీ మ్యూచువల్ ఫండ్ SIP",
+    optAggName: "ఇండెక్స్ ఫండ్ SIP", optAggDesc: "దూకుడు వృద్ధి — ఇండెక్స్ లేదా గ్రోత్ ఫండ్, దీర్ఘకాలానికి",
+    savedGoalsLabel: "మీ లక్ష్యాలు", noGoalsYet: "ఇంకా లక్ష్యాలు లేవు — ఒకటి జోడించండి!", perMonth: "/నెల",
+    currentGoalLabel: "మీ ప్రస్తుత లక్ష్యం", viewAllLabel: "అన్నీ చూడండి →",
+    historyLabel: "చరిత్ర", sendTab: "పంపండి", historyTab: "చరిత్ర", noHistoryYet: "ఇంకా లావాదేవీలు లేవు", toLabel: "కు",
+    navInvest: "పెట్టుబడులు", invTitle: "పెట్టుబడులు అన్వేషించండి", invSub: "మీ బడ్జెట్, రాబడి, లక్ష్యం నమోదు చేయండి",
+    monthlyAmountLabel: "నెలవారీ పెట్టుబడి మొత్తం", monthlyAmountPh: "₹ మొత్తం నమోదు చేయండి",
+    timeRequiredLabel: "సుమారు పట్టే సమయం", legalOptionsLabel: "అందుబాటులో ఉన్న చట్టబద్ధమైన పెట్టుబడి ఎంపికలు",
+    matchBadge: "మీ అంచనాకు సరిపోతుంది", riskLabelSafe: "సురక్షితం", riskLabelLow: "తక్కువ-మధ్యస్థ",
+    riskLabelMod: "మధ్యస్థ", riskLabelMkt: "మార్కెట్-ఆధారిత", monthsShort: "నెలలు", yearsShort: "సంవత్సరాలు",
+    ratePerAnnum: "సంవత్సరానికి", fillAllFields: "గణన చూడటానికి అన్ని ఫీల్డ్‌లను పూరించండి",
+    navFinances: "నా డబ్బు", financesTitle: "నా ఆర్థిక వివరాలు", financesSub: "మీ నిజమైన స్కోర్ చూడటానికి నింపండి",
+    incomePh: "నెలవారీ ఆదాయం నమోదు చేయండి", savingsPh: "నెలవారీ పొదుపు నమోదు చేయండి", expensesPh: "నెలవారీ ఖర్చులు నమోదు చేయండి",
+    saveFinancesBtn: "సేవ్ చేసి స్కోర్ చూడండి", overBudgetWarning: "ఇది మీ ఆదాయం కంటే ఎక్కువ — సంఖ్యలు తనిఖీ చేయండి",
+    setupPromptTitle: "మీ నిజమైన స్కోర్ చూడండి", setupPromptBody: "మీ ఆదాయం, పొదుపు, ఖర్చులు నమోదు చేయండి →",
+    newGoalBtn: "+ కొత్త లక్ష్యం", goalSetupTitle: "లక్ష్య సెటప్", goalSetupSub: "మీ తదుపరి లక్ష్యాన్ని సృష్టించండి",
+    goalNameLabel: "లక్ష్యం పేరు", goalNamePh: "ఉదా: కూతురి స్కూల్ ఫీజు",
+    goalAmountLabel: "ఎంత మొత్తం కావాలి", goalAmountPh: "₹ మొత్తం నమోదు చేయండి",
+    goalDateLabel: "లక్ష్య తేదీ", monthsLeftLabel: "నెలలు మిగిలి ఉన్నాయి",
+    monthlyLabel: "ప్రతి నెలా పొదుపు / పెట్టుబడి పెట్టండి", setGoalBtn: "లక్ష్యం సెట్ చేయండి",
+    goalSuccessTitle: "లక్ష్యం సెట్ అయింది!", goalSuccessSub: "మీ నెలవారీ లక్ష్యం నిర్ణయించబడింది", doneBtnGoal: "పూర్తయింది",
+    sendTitle: "డబ్బు పంపండి", sendSub: "ఇంటికి సురక్షితంగా డబ్బు పంపండి",
+    recipientLabel: "స్వీకర్త పేరు / మొబైల్", recipientPh: "ఉదా: రామ్ శంకర్, 98xxxxxx10",
+    amountLabel: "మొత్తం", amountPh: "₹ మొత్తం నమోదు చేయండి",
+    feeCompareTitle: "మీరు ఎంత ఆదా చేస్తున్నారు", shopFeeLabel: "రెమిటెన్స్ షాప్ ఫీజు", appFeeLabel: "ArthaBot (UPI) ఫీజు",
+    feeSourceNote: "సగటు 4.6% — దేశీయ భారత రెమిటెన్స్‌పై CGAP/IFMR-RBI అధ్యయనం ఆధారంగా",
+    sendBtn: "డబ్బు పంపండి", reviewBtn: "సమీక్షించి పంపండి",
+    successTitle: "విజయవంతంగా పంపబడింది!", successSub: "డబ్బు వెంటనే చేరింది, ఎలాంటి ఫీజు లేదు",
+    doneBtn: "పూర్తయింది", newTransfer: "మరొకటి పంపండి",
+    chatTitle: "మనీ మిత్ర", chatSub: "ArthaBot • తెలుగు",
+    showEnglish: "ఇంగ్లీష్ చూపించు", typeHint: "టైప్ చేయండి లేదా మాట్లాడటానికి నొక్కండి…",
+    scamTitle: "మోసం తనిఖీ", scamSub: "ఏదైనా ఆఫర్ ఫార్వార్డ్ చేసి తనిఖీ చేయండి",
+    tryExample: "ఒక ఉదాహరణ ప్రయత్నించండి, లేదా మీది పేస్ట్ చేయండి:", scamPh: "అనుమానాస్పద సందేశం ఇక్కడ పేస్ట్ చేయండి…",
+    checking: "రిజిస్ట్రీతో సరిపోల్చుతోంది…", checkBtn: "ఈ ఆఫర్‌ని తనిఖీ చేయండి",
+    why: "ఎందుకు?", human: "0 — మనిషి",
+    schemeTitle: "పథకం తనిఖీ", schemeSub: "గరిష్టంగా 8 ప్రశ్నలు", qLabel: "ప్రశ్న",
+    resultIntro: "మీ సమాధానాల ఆధారంగా, మీరు వీటికి అర్హులు కావచ్చు:", startOver: "మళ్ళీ ప్రారంభించండి",
+    aainaTitle: "ఆయినా", aainaSub: "మీ నెలవారీ రెండు భవిష్యత్తులు",
+    goalLabel: "లక్ష్యం: దీపావళి నాటికి కూతురి స్కూల్ ఫీజు",
+    todayCol: "ఈరోజులా కొనసాగించండి", stepCol: "ఒక అడుగు వేయండి", savedBy: "దీపావళి నాటికి పొదుపు",
+    saveExtra: "ప్రతి వారం అదనంగా పొదుపు చేయండి", setNudge: "ఈ పొదుపు రిమైండర్ సెట్ చేయండి",
+    onceMonth: "ఉద్దేశపూర్వకంగా నెలకు ఒకసారి చూపబడుతుంది — మరో నోటిఫికేషన్ కాదు.",
+  },
+  en: {
+    chooseLangTitle: "Choose your language", continueBtn: "Continue",
+    regTitle: "Registration", regSub: "Tell us a bit about you to get started",
+    nameLabel: "Your name", namePh: "e.g. Lakshmi Devi",
+    mobileLabel: "Mobile number", mobilePh: "10-digit number",
+    sendOtp: "Send OTP", otpSentTo: "OTP sent to",
+    otpLabel: "Enter OTP", otpPh: "6-digit OTP", otpHint: "Demo OTP: 123456",
+    verifyBtn: "Verify & Register",
+    navChat: "Chat", navScam: "Scam Check", navScheme: "Schemes", navAaina: "Aaina", navSend: "Send Money", navHome: "Home",
+    homeGreetTitle: "Money Mitra says", homeGreetBody: "Namaste! Today is a great day to check your emergency fund.",
+    healthScoreLabel: "Financial Health Score", howToImprove: "How to improve →",
+    improveTitle: "How to improve your score", improveSub: "Start with your weakest area",
+    closeBtn: "Close",
+    tipIncomeTitle: "Income", tipIncome: "Add a side income or part-time gig to keep cash flow steady.",
+    tipSavingsTitle: "Savings", tipSavings: "Automate a fixed amount right after payday — even ₹50/week adds up.",
+    tipGoalsTitle: "Goals", tipGoals: "Use '+ New Goal' to lock in a clear target and monthly plan.",
+    savingsGoalsLabel: "Savings & Goals", tipSavingsGoalsTitle: "Savings & Goals",
+    tipSavingsGoals: "Put a larger share of your income into savings or goals — the higher that share, the better this score. Start with '+ New Goal'.",
+    tipExpensesTitle: "Expenses", tipExpenses: "Track spending for 2 weeks to spot leaks — small recurring costs add up fastest.",
+    incomeLabel: "Income", savingsLabel: "Savings", goalsLabel: "Goals", expensesLabel: "Expenses",
+    quickActionsLabel: "Quick Actions", welcomeBack: "Welcome back",
+    helpTitle: "Help & Support", helpSub: "We're here for you",
+    faqTitle: "Frequently Asked Questions",
+    faqQ1: "How do I check an offer for scams?", faqA1: "Open the 'Scam Check' tab, paste the message, and get an instant verdict.",
+    faqQ2: "How much does sending money cost?", faqA2: "Free when sent through ArthaBot (UPI) — cheaper than a remittance shop.",
+    faqQ3: "What if my OTP doesn't arrive?", faqA3: "Tap 'Resend OTP', or choose 'Talk to a human' below.",
+    talkHuman: "Talk to a human", callbackInfo: "We'll call you back within 4 working hours",
+    helpFab: "Help",
+    expectedReturnLabel: "Expected annual return",
+    investmentOptionsLabel: "Investment options",
+    optSafeName: "RD / PPF (Safe)", optSafeDesc: "Guaranteed, low risk — bank Recurring Deposit or Public Provident Fund",
+    optBalName: "Debt Mutual Fund", optBalDesc: "Steady growth, moderate risk — debt or balanced fund",
+    optGrowName: "Equity SIP", optGrowDesc: "Higher growth potential, market risk — equity mutual fund SIP",
+    optAggName: "Index Fund SIP", optAggDesc: "Aggressive growth — index or growth fund, for the long term",
+    savedGoalsLabel: "Your Goals", noGoalsYet: "No goals yet — add one!", perMonth: "/mo",
+    currentGoalLabel: "Your Current Goal", viewAllLabel: "View all →",
+    historyLabel: "History", sendTab: "Send", historyTab: "History", noHistoryYet: "No transactions yet", toLabel: "to",
+    navInvest: "Investments", invTitle: "Explore Investments", invSub: "Enter your budget, return, and goal",
+    monthlyAmountLabel: "Monthly investment amount", monthlyAmountPh: "Enter ₹ amount",
+    timeRequiredLabel: "Time required (approx.)", legalOptionsLabel: "Legal investment options available",
+    matchBadge: "Matches your estimate", riskLabelSafe: "Safe", riskLabelLow: "Low-Moderate",
+    riskLabelMod: "Moderate", riskLabelMkt: "Market-linked", monthsShort: "mo", yearsShort: "yr",
+    ratePerAnnum: "p.a.", fillAllFields: "Fill in all fields to see the calculation",
+    navFinances: "My Money", financesTitle: "My Finances", financesSub: "Fill this in to see your real score",
+    incomePh: "Enter monthly income", savingsPh: "Enter monthly savings", expensesPh: "Enter monthly expenses",
+    saveFinancesBtn: "Save & See Score", overBudgetWarning: "This adds up to more than your income — check your numbers",
+    setupPromptTitle: "See your real score", setupPromptBody: "Enter your income, savings & expenses →",
+    newGoalBtn: "+ New Goal", goalSetupTitle: "Goal Setup", goalSetupSub: "Create your next goal",
+    goalNameLabel: "Goal name", goalNamePh: "e.g. Daughter's school fees",
+    goalAmountLabel: "How much do you need", goalAmountPh: "Enter ₹ amount",
+    goalDateLabel: "Target date", monthsLeftLabel: "months left",
+    monthlyLabel: "Save / invest per month", setGoalBtn: "Set Goal",
+    goalSuccessTitle: "Goal set!", goalSuccessSub: "Your monthly target is locked in", doneBtnGoal: "Done",
+    sendTitle: "Send Money", sendSub: "Send money home safely",
+    recipientLabel: "Recipient name / mobile", recipientPh: "e.g. Ram Shankar, 98xxxxxx10",
+    amountLabel: "Amount", amountPh: "Enter ₹ amount",
+    feeCompareTitle: "How much you save", shopFeeLabel: "Remittance shop fee", appFeeLabel: "ArthaBot (UPI) fee",
+    feeSourceNote: "Avg. 4.6% — based on a CGAP/IFMR-RBI study of domestic Indian remittances",
+    sendBtn: "Send Money", reviewBtn: "Review & Send",
+    successTitle: "Sent successfully!", successSub: "Money arrived instantly, zero fee charged",
+    doneBtn: "Done", newTransfer: "Send another",
+    chatTitle: "Money Mitra", chatSub: "ArthaBot • English",
+    showEnglish: "Show English gloss", typeHint: "Type or hold to speak…",
+    scamTitle: "Scam Check", scamSub: "Forward any offer to verify",
+    tryExample: "Try a real example, or paste your own:", scamPh: "Paste a suspicious message here…",
+    checking: "Matching against SEBI & RBI registers…", checkBtn: "Check this offer",
+    why: "Why?", human: "0 — human",
+    schemeTitle: "Scheme Checker", schemeSub: "At most 8 questions", qLabel: "Question",
+    resultIntro: "Based on your answers, you likely qualify for:", startOver: "Start over",
+    aainaTitle: "Aaina — Mirror", aainaSub: "Your monthly two futures",
+    goalLabel: "Goal: Daughter's school fees by Diwali",
+    todayCol: "Continue as today", stepCol: "Take one step", savedBy: "saved by Diwali",
+    saveExtra: "Save extra per week", setNudge: "Set this savings nudge",
+    onceMonth: "Shown once a month by design — not another notification to chase.",
+  },
+};
+
+const SCREEN_IDS = [
+  { id: "home", key: "navHome", icon: Home },
+  { id: "chat", key: "navChat", icon: MessageCircle },
+  { id: "send", key: "navSend", icon: Send },
+  { id: "scam", key: "navScam", icon: ShieldCheck },
+  { id: "scheme", key: "navScheme", icon: Landmark },
+  { id: "aaina", key: "navAaina", icon: Sparkles },
+];
+
+function BottomNav({ screen, setScreen, t }) {
+  return (
+    <div className="sticky bottom-0 z-10 bg-white border-t border-[#1E2A4F]/10 flex items-stretch shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+      {SCREEN_IDS.map((s) => {
+        const Icon = s.icon;
+        const active = screen === s.id;
+        return (
+          <button
+            key={s.id}
+            onClick={() => setScreen(s.id)}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-[9.5px] font-semibold transition ${
+              active ? "text-[#1E2A4F]" : "text-[#1E2A4F]/40"
+            }`}
+          >
+            <Icon size={18} color={active ? "#E1A32A" : "currentColor"} />
+            {t[s.key]}
+          </button>
+        );
+      })}
+      <button
+        onClick={() => setScreen("investments")}
+        className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-[9.5px] font-semibold transition ${
+          screen === "investments" ? "text-[#1E2A4F]" : "text-[#1E2A4F]/40"
+        }`}
+      >
+        <TrendingUp size={18} color={screen === "investments" ? "#E1A32A" : "currentColor"} />
+        {t.navInvest}
+      </button>
+    </div>
+  );
+}
+
+function TopBar({ title, subtitle, name, onBack }) {
+  return (
+    <div className="sticky top-0 z-10 bg-[#1E2A4F] text-[#FBF3E4] px-4 pt-4 pb-3 flex items-center gap-3 shadow-md">
+      {onBack && (
+        <button onClick={onBack} className="w-7 h-7 -ml-1 rounded-full flex items-center justify-center hover:bg-white/10 shrink-0">
+          <ChevronLeft size={18} />
+        </button>
+      )}
+      <div className="w-9 h-9 rounded-full bg-[#E1A32A] flex items-center justify-center text-[#1E2A4F] font-bold text-sm shrink-0">AB</div>
+      <div className="min-w-0">
+        <div className="font-semibold text-[15px] leading-tight truncate">{title}</div>
+        {name && <div className="text-[10px] text-[#E1A32A] font-medium truncate">Hi, {name} 👋</div>}
+        {subtitle && <div className="text-[11px] text-[#C7CEDD] truncate">{subtitle}</div>}
+      </div>
+    </div>
+  );
+}
+
+function LanguageScreen({ onSelect }) {
+  const [picked, setPicked] = useState(null);
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title="ArthaBot" subtitle="India's AI Financial Growth Companion" />
+      <div className="flex-1 flex flex-col justify-center px-6">
+        <div className="text-center mb-6">
+          <Sparkles className="mx-auto text-[#E1A32A] mb-2" size={26} />
+          <div className="text-[17px] font-bold text-[#1E2A4F]">Choose your language</div>
+          <div className="text-[11px] text-[#1E2A4F]/50 mt-1">अपनी भाषा चुनें • మీ భాషను ఎంచుకోండి</div>
+        </div>
+        <div className="space-y-2.5">
+          {LANGUAGES.map((l) => (
+            <button key={l.code} onClick={() => setPicked(l.code)}
+              className={`w-full text-left rounded-xl px-4 py-3.5 flex items-center justify-between transition shadow-sm ${picked === l.code ? "bg-[#1E2A4F] text-[#FBF3E4]" : "bg-white text-[#1E2A4F]"}`}>
+              <span className="font-semibold text-[15px]">{l.native}</span>
+              <span className={`text-[11px] ${picked === l.code ? "text-[#E1A32A]" : "text-[#1E2A4F]/40"}`}>{l.label}</span>
+            </button>
+          ))}
+        </div>
+        <button disabled={!picked} onClick={() => onSelect(picked)}
+          className="w-full mt-6 bg-[#E1A32A] text-[#1E2A4F] rounded-xl py-3 text-[13.5px] font-bold disabled:opacity-30 flex items-center justify-center gap-2">
+          {picked ? T[picked].continueBtn : "Continue"} <ArrowRight size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RegisterScreen({ lang, onDone, onBack }) {
+  const t = T[lang];
+  const [name, setName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [error, setError] = useState("");
+  const validMobile = /^\d{10}$/.test(mobile);
+  const otpCorrect = otp === "123456";
+
+  const sendOtp = () => { if (!name.trim() || !validMobile) return; setOtpSent(true); setError(""); };
+  const verify = () => {
+    if (otpCorrect) onDone({ name, mobile });
+    else setError(lang === "hi" ? "गलत OTP। कृपया 123456 दर्ज करें।" : lang === "te" ? "తప్పు OTP. దయచేసి 123456 నమోదు చేయండి." : "Incorrect OTP. Please enter 123456.");
+  };
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title={t.regTitle} subtitle={t.regSub} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-5 py-6 space-y-4">
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5"><User size={12} /> {t.nameLabel}</label>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder={t.namePh} disabled={otpSent}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#E1A32A] disabled:opacity-60" />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5"><Smartphone size={12} /> {t.mobileLabel}</label>
+          <input type="tel" value={mobile} onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder={t.mobilePh} disabled={otpSent}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#E1A32A] disabled:opacity-60" />
+          <button onClick={sendOtp} disabled={!name.trim() || !validMobile || otpSent}
+            className="w-full mt-2 bg-[#1E2A4F] text-[#FBF3E4] rounded-xl py-2.5 text-[12.5px] font-semibold disabled:opacity-30 flex items-center justify-center gap-1.5">
+            {otpSent ? <><Check size={14} /> OTP Sent</> : t.sendOtp}
+          </button>
+        </div>
+        {otpSent && (
+          <div>
+            <div className="text-[10.5px] text-[#3F7D58] font-medium mb-2">{t.otpSentTo} +91 {mobile}</div>
+            <label className="text-[11px] font-semibold text-[#1E2A4F]/70 mb-1.5 block">{t.otpLabel}</label>
+            <input type="text" value={otp} onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(""); }} placeholder={t.otpPh}
+              className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[15px] tracking-[0.3em] text-center font-semibold focus:outline-none focus:ring-2 focus:ring-[#E1A32A]" />
+            <div className="text-[10px] text-[#1E2A4F]/40 mt-1.5">{t.otpHint}</div>
+            {error && <div className="text-[10.5px] text-[#C1443A] mt-1.5">{error}</div>}
+            <button onClick={verify} disabled={otp.length !== 6}
+              className="w-full mt-4 bg-[#E1A32A] text-[#1E2A4F] rounded-xl py-3 text-[13.5px] font-bold disabled:opacity-30 flex items-center justify-center gap-2">
+              {t.verifyBtn} <ArrowRight size={15} />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ScoreRing({ score }) {
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  const offset = c - (score / 100) * c;
+  const color = score >= 75 ? "#3F7D58" : score >= 50 ? "#E1A32A" : "#C1443A";
+  return (
+    <svg width="130" height="130" viewBox="0 0 130 130">
+      <circle cx="65" cy="65" r={r} fill="none" stroke="#E5EEF6" strokeWidth="10" />
+      <circle
+        cx="65" cy="65" r={r} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={offset} transform="rotate(-90 65 65)"
+        style={{ transition: "stroke-dashoffset 0.6s ease" }}
+      />
+      <text x="65" y="60" textAnchor="middle" fontSize="30" fontWeight="700" fill="#1E2A4F">{score}</text>
+      <text x="65" y="80" textAnchor="middle" fontSize="10" fill="#1E2A4F" opacity="0.5">/ 100</text>
+    </svg>
+  );
+}
+
+function FactorBar({ icon: Icon, label, value, color }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: color + "22" }}>
+        <Icon size={14} color={color} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between mb-0.5">
+          <span className="text-[10.5px] font-medium text-[#1E2A4F]/70 truncate">{label}</span>
+          <span className="text-[10.5px] font-bold text-[#1E2A4F]">{value}</span>
+        </div>
+        <div className="h-1.5 w-full bg-[#1E2A4F]/10 rounded-full overflow-hidden">
+          <div className="h-full rounded-full" style={{ width: `${value}%`, backgroundColor: color }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Financial Health Score engine ----
+// Every factor is derived from what the user has actually entered/done in the
+// app (finances form + goals list) — nothing here is a fixed placeholder.
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// Income bucket table (monthly ₹ income → score)
+function scoreIncome(income) {
+  if (income < 20000) return 15;
+  if (income < 40000) return 25;
+  if (income < 60000) return 50;
+  if (income < 80000) return 75;
+  return 100;
+}
+
+// Expense-to-income ratio bucket table
+function scoreExpenses(expenses, income) {
+  if (!income) return 0;
+  const ratioPct = (expenses / income) * 100;
+  if (ratioPct < 20) return 100;
+  if (ratioPct < 40) return 85;
+  if (ratioPct < 60) return 50;
+  if (ratioPct < 80) return 15;
+  return 5;
+}
+
+// (Savings + Goals monthly commitments) combined, as a % of income — bucket table
+// Shared bucket table — a ratio-to-income percentage mapped to a 0-100 score.
+// Used identically for Savings and for Goals (each measured against income separately).
+function ratioBucketScore(ratioPct) {
+  if (ratioPct > 70) return 100;
+  if (ratioPct >= 50) return 80;
+  if (ratioPct >= 40) return 70;
+  if (ratioPct >= 30) return 60;
+  if (ratioPct >= 20) return 50;
+  if (ratioPct >= 10) return 30;
+  if (ratioPct >= 1) return 15;
+  return 0;
+}
+
+function scoreSavings(savings, income) {
+  if (!income) return 0;
+  return ratioBucketScore((savings / income) * 100);
+}
+
+function scoreGoals(goals, income) {
+  if (!income) return 0;
+  const goalMonthlyTotal = goals.reduce((s, g) => s + (g.monthly || 0), 0);
+  return ratioBucketScore((goalMonthlyTotal / income) * 100);
+}
+
+function computeScores(finances, goals) {
+  const { income, savings, expenses } = finances;
+  return {
+    incomeLabel: scoreIncome(income),
+    savingsLabel: scoreSavings(savings, income),
+    goalsLabel: scoreGoals(goals, income),
+    expensesLabel: scoreExpenses(expenses, income),
+  };
+}
+
+function HomeScreen({ lang, name, goTo, goals, finances }) {
+  const t = T[lang];
+  const [showTips, setShowTips] = useState(false);
+  const hasFinances = finances.income > 0;
+  const computed = computeScores(finances, goals);
+  const factors = [
+    { key: "incomeLabel", value: computed.incomeLabel, color: "#3F7D58", icon: Wallet, tipTitle: "tipIncomeTitle", tip: "tipIncome" },
+    { key: "savingsLabel", value: computed.savingsLabel, color: "#E1A32A", icon: PiggyBank, tipTitle: "tipSavingsTitle", tip: "tipSavings" },
+    { key: "goalsLabel", value: computed.goalsLabel, color: "#6C63C9", icon: Target, tipTitle: "tipGoalsTitle", tip: "tipGoals" },
+    { key: "expensesLabel", value: computed.expensesLabel, color: "#C1443A", icon: Receipt, tipTitle: "tipExpensesTitle", tip: "tipExpenses" },
+  ];
+  const score = Math.round(factors.reduce((s, f) => s + f.value, 0) / factors.length);
+  const level = score >= 75 ? 4 : score >= 55 ? 3 : score >= 35 ? 2 : 1;
+  const sortedByWeakest = [...factors].sort((a, b) => a.value - b.value);
+
+  const actions = [
+    { screen: "finances", label: t.navFinances, icon: Wallet, color: "#0E7C8C" },
+    { screen: "scam", label: t.navScam, icon: ShieldAlert, color: "#C1443A" },
+    { screen: "scheme", label: t.navScheme, icon: Landmark, color: "#3F7D58" },
+    { screen: "send", label: t.navSend, icon: Send, color: "#1E2A4F" },
+    { screen: "aaina", label: t.navAaina, icon: Sparkles, color: "#E1A32A" },
+    { screen: "goalSetup", label: t.newGoalBtn.replace("+ ", ""), icon: Target, color: "#6C63C9" },
+    { screen: "investments", label: t.navInvest, icon: TrendingUp, color: "#0E7C8C" },
+  ];
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0 relative">
+      <TopBar title="ArthaBot" subtitle={t.welcomeBack} name={name} />
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="text-[10.5px] font-bold text-[#1E2A4F]/50 tracking-wide mb-1">{t.homeGreetTitle.toUpperCase()}</div>
+          <div className="text-[13px] text-[#1E2A4F] leading-snug">"{t.homeGreetBody}"</div>
+        </div>
+
+        {!hasFinances && (
+          <button
+            onClick={() => goTo("finances")}
+            className="w-full bg-[#E1A32A]/15 border-2 border-dashed border-[#E1A32A] rounded-2xl p-4 text-left"
+          >
+            <div className="text-[12.5px] font-bold text-[#1E2A4F]">{t.setupPromptTitle}</div>
+            <div className="text-[11px] text-[#1E2A4F]/60 mt-0.5">{t.setupPromptBody}</div>
+          </button>
+        )}
+
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="text-[11px] font-semibold text-[#1E2A4F]/60 text-center mb-2">{t.healthScoreLabel}</div>
+          <div className="flex flex-col items-center">
+            <ScoreRing score={score} />
+            <div className="text-[11px] font-bold text-[#3F7D58] -mt-1">LEVEL {level}</div>
+          </div>
+          <div className="mt-4 space-y-3">
+            {factors.map((f) => (
+              <FactorBar key={f.key} icon={f.icon} label={t[f.key]} value={f.value} color={f.color} />
+            ))}
+          </div>
+          <button onClick={() => setShowTips(true)} className="w-full text-center text-[11px] font-semibold text-[#1E2A4F] mt-3">{t.howToImprove}</button>
+        </div>
+
+        {goals.length > 0 && (() => {
+          const current = goals[goals.length - 1];
+          return (
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-semibold text-[#1E2A4F]/60">{t.currentGoalLabel}</span>
+                <button onClick={() => goTo("aaina")} className="text-[10.5px] font-semibold text-[#6C63C9]">{t.viewAllLabel}</button>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#6C63C9]/10 flex items-center justify-center shrink-0">
+                  <Target size={18} color="#6C63C9" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold text-[#1E2A4F] truncate">{current.name}</div>
+                  <div className="text-[10.5px] text-[#1E2A4F]/50">₹{current.amount.toLocaleString("en-IN")} · {current.optionName}</div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-[13px] font-bold text-[#3F7D58]">₹{current.monthly.toLocaleString("en-IN")}{t.perMonth}</div>
+                  <div className="text-[9.5px] text-[#1E2A4F]/40">{current.monthsLeft} {t.monthsLeftLabel}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        <div>
+          <div className="text-[11px] font-semibold text-[#1E2A4F]/60 mb-2 px-0.5">{t.quickActionsLabel}</div>
+          <div className="grid grid-cols-2 gap-3">
+            {actions.map((a) => {
+              const Icon = a.icon;
+              return (
+                <button
+                  key={a.screen}
+                  onClick={() => goTo(a.screen)}
+                  className="bg-white rounded-2xl p-3.5 shadow-sm flex flex-col items-center gap-2 hover:shadow-md transition"
+                >
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ backgroundColor: a.color + "1A" }}>
+                    <Icon size={17} color={a.color} />
+                  </div>
+                  <span className="text-[11.5px] font-semibold text-[#1E2A4F]">{a.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {showTips && (
+        <div
+          className="absolute inset-0 z-30 bg-[#1E2A4F]/50 flex items-end justify-center"
+          onClick={() => setShowTips(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-t-3xl w-full max-h-[75%] overflow-y-auto p-5 pb-6"
+          >
+            <div className="w-10 h-1 bg-[#1E2A4F]/15 rounded-full mx-auto mb-4" />
+            <div className="text-[16px] font-bold text-[#1E2A4F] mb-1">{t.improveTitle}</div>
+            <div className="text-[11.5px] text-[#1E2A4F]/50 mb-4">{t.improveSub}</div>
+            <div className="space-y-3">
+              {sortedByWeakest.map((f) => {
+                const Icon = f.icon;
+                return (
+                  <div key={f.key} className="flex items-start gap-3 bg-[#F5FAFD] rounded-xl p-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: f.color + "22" }}>
+                      <Icon size={15} color={f.color} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12.5px] font-bold text-[#1E2A4F]">{t[f.tipTitle]}</span>
+                        <span className="text-[9.5px] font-semibold text-[#1E2A4F]/40">{f.value}/100</span>
+                      </div>
+                      <div className="text-[11px] text-[#1E2A4F]/65 mt-0.5 leading-snug">{t[f.tip]}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setShowTips(false)}
+              className="w-full mt-4 bg-[#1E2A4F] text-[#FBF3E4] rounded-xl py-2.5 text-[12.5px] font-semibold"
+            >
+              {t.closeBtn}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HelpScreen({ lang, name, onBack }) {
+  const t = T[lang];
+  const faqs = [
+    { q: t.faqQ1, a: t.faqA1 },
+    { q: t.faqQ2, a: t.faqA2 },
+    { q: t.faqQ3, a: t.faqA3 },
+  ];
+  const [open, setOpen] = useState(0);
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title={t.helpTitle} subtitle={t.helpSub} name={name} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        <button className="w-full bg-[#3F7D58] text-white rounded-2xl p-4 shadow-sm flex items-center gap-3 text-left">
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+            <Phone size={18} />
+          </div>
+          <div>
+            <div className="font-semibold text-[13.5px]">{t.talkHuman}</div>
+            <div className="text-[10.5px] opacity-90">{t.callbackInfo}</div>
+          </div>
+        </button>
+
+        <div>
+          <div className="text-[11px] font-semibold text-[#1E2A4F]/60 mb-2 px-0.5">{t.faqTitle}</div>
+          <div className="space-y-2">
+            {faqs.map((f, i) => (
+              <div key={i} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                <button
+                  onClick={() => setOpen(open === i ? -1 : i)}
+                  className="w-full text-left px-3.5 py-3 flex items-center justify-between gap-2"
+                >
+                  <span className="text-[12.5px] font-semibold text-[#1E2A4F]">{f.q}</span>
+                  <ChevronRight size={14} className={`shrink-0 text-[#1E2A4F]/40 transition-transform ${open === i ? "rotate-90" : ""}`} />
+                </button>
+                {open === i && (
+                  <div className="px-3.5 pb-3 text-[11.5px] text-[#1E2A4F]/70 leading-snug">{f.a}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const CHAT_SCRIPT = {
+  hi: [
+    { from: "user", text: "SIP kya hota hai?", en: "What is a SIP?" },
+    { from: "bot", text: "SIP ek gullak hai jiska ek timetable hota hai — har mahine thodi si raqam apne aap bachat mein jaati hai.", en: "A SIP is a piggy bank with a timetable — a small amount is saved automatically every month." },
+    { from: "user", text: "Kitna paisa chahiye shuru karne ke liye?", en: "How much money do I need to start?" },
+    { from: "bot", text: "Kai jagah ₹100 se shuru ho jaata hai. Main aapke liye ek 'Goal Tracker' bana doon?", en: "Many start at just ₹100. Should I set up a Goal Tracker for you?" },
+  ],
+  te: [
+    { from: "user", text: "SIP అంటే ఏమిటి?", en: "What is a SIP?" },
+    { from: "bot", text: "SIP అనేది టైమ్‌టేబుల్ ఉన్న గుళక లాంటిది — ప్రతి నెలా కొంచెం మొత్తం స్వయంచాలకంగా పొదుపు అవుతుంది.", en: "A SIP is a piggy bank with a timetable — a small amount is saved automatically every month." },
+    { from: "user", text: "ప్రారంభించడానికి ఎంత డబ్బు కావాలి?", en: "How much money do I need to start?" },
+    { from: "bot", text: "చాలా చోట్ల ₹100 తో మొదలవుతుంది. మీ కోసం 'గోల్ ట్రాకర్' సెటప్ చేయమంటారా?", en: "Many start at just ₹100. Should I set up a Goal Tracker for you?" },
+  ],
+  en: [
+    { from: "user", text: "What is a SIP?", en: "" },
+    { from: "bot", text: "A SIP is a piggy bank with a timetable — a small amount is saved automatically every month.", en: "" },
+    { from: "user", text: "How much money do I need to start?", en: "" },
+    { from: "bot", text: "Many start at just ₹100. Should I set up a Goal Tracker for you?", en: "" },
+  ],
+};
+
+function ChatScreen({ lang, name, onBack }) {
+  const t = T[lang];
+  const script = CHAT_SCRIPT[lang];
+  const [visible, setVisible] = useState(2);
+  const [showGloss, setShowGloss] = useState(lang !== "en");
+  const endRef = useRef(null);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [visible]);
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title={t.chatTitle} subtitle={t.chatSub} name={name} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-[repeating-linear-gradient(135deg,#EAF6FD,#EAF6FD_18px,#DCEEFB_18px,#DCEEFB_19px)]">
+        {script.slice(0, visible).map((m, i) => (
+          <div key={i} className={`flex ${m.from === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 text-[13.5px] leading-snug shadow-sm ${m.from === "user" ? "bg-[#E1A32A] text-[#1E2A4F] rounded-br-sm" : "bg-white text-[#1E2A4F] rounded-bl-sm"}`}>
+              <div className="font-medium">{m.text}</div>
+              {showGloss && m.en && <div className="text-[10.5px] mt-1 opacity-60 italic">{m.en}</div>}
+            </div>
+          </div>
+        ))}
+        <div ref={endRef} />
+      </div>
+      <div className="px-4 pb-2 flex items-center justify-between">
+        {lang !== "en" ? (
+          <label className="flex items-center gap-1.5 text-[10px] text-[#1E2A4F]/60">
+            <input type="checkbox" checked={showGloss} onChange={() => setShowGloss((s) => !s)} /> {t.showEnglish}
+          </label>
+        ) : <span />}
+        {visible < script.length && (
+          <button onClick={() => setVisible((v) => v + 1)} className="text-[11px] font-semibold text-[#1E2A4F] bg-[#E1A32A]/30 px-3 py-1 rounded-full flex items-center gap-1">
+            {t.continueBtn} <ChevronRight size={12} />
+          </button>
+        )}
+      </div>
+      <div className="border-t border-[#1E2A4F]/10 px-3 py-3 flex items-center gap-2 bg-white">
+        <div className="flex-1 bg-[#EAF6FD] rounded-full px-4 py-2 text-[12px] text-[#1E2A4F]/50">{t.typeHint}</div>
+        <button className="w-9 h-9 rounded-full bg-[#1E2A4F] flex items-center justify-center text-[#FBF3E4]"><Mic size={16} /></button>
+      </div>
+    </div>
+  );
+}
+
+const SCAM_EXAMPLES = {
+  hi: [
+    { text: "21 दिनों में अपना पैसा दोगुना करने की गारंटी — Telegram पर अभी जुड़ें!", verdict: "scam" },
+    { text: "आपके PMJDY खाते का KYC आज फ्रीज हो जाएगा, सत्यापन के लिए OTP भेजें", verdict: "scam" },
+    { text: "SBI फिक्स्ड डिपॉजिट पर वरिष्ठ नागरिकों के लिए ब्याज दर", verdict: "safe" },
+  ],
+  te: [
+    { text: "21 రోజుల్లో మీ డబ్బును రెట్టింపు చేస్తామని గ్యారంటీ — ఇప్పుడే Telegram లో చేరండి!", verdict: "scam" },
+    { text: "మీ PMJDY ఖాతా KYC ఈరోజు స్తంభిస్తుంది, ధృవీకరణ కోసం OTP పంపండి", verdict: "scam" },
+    { text: "SBI ఫిక్స్‌డ్ డిపాజిట్‌పై సీనియర్ సిటిజన్లకు వడ్డీ రేటు", verdict: "safe" },
+  ],
+  en: [
+    { text: "Guaranteed double your money in 21 days — join now on Telegram!", verdict: "scam" },
+    { text: "Your PMJDY account KYC will freeze today, share OTP to verify", verdict: "scam" },
+    { text: "SBI fixed deposit interest rate for senior citizens", verdict: "safe" },
+  ],
+};
+
+const SCAM_REASON = {
+  hi: {
+    scam: { label: "संभावित स्कैम", reason: "यह इकाई SEBI/RBI पंजीकृत सूची में नहीं मिली। तात्कालिकता + गारंटीड रिटर्न का सामान्य पैटर्न।" },
+    safe: { label: "सुरक्षित", reason: "एक पंजीकृत बैंक ऑफर से मेल खाता है। कोई दबाव वाली रणनीति नहीं मिली।" },
+    unclear: { label: "सावधानी — निश्चित नहीं", reason: "आत्मविश्वास से सत्यापित नहीं हो सका। एक व्यक्ति 4 कार्य घंटों में कॉल करेगा।" },
+  },
+  te: {
+    scam: { label: "మోసం అవకాశం", reason: "ఈ సంస్థ SEBI/RBI నమోదిత జాబితాలో కనుగొనబడలేదు. అత్యవసరత + గ్యారంటీడ్ రిటర్న్ నమూనా." },
+    safe: { label: "సురక్షితం", reason: "నమోదైన బ్యాంక్ ఆఫర్‌తో సరిపోలింది. ఒత్తిడి వ్యూహాలు కనుగొనబడలేదు." },
+    unclear: { label: "జాగ్రత్త — ఖచ్చితం కాదు", reason: "నమ్మకంగా ధృవీకరించలేకపోయాము. ఒక వ్యక్తి 4 పని గంటల్లో కాల్ చేస్తారు." },
+  },
+  en: {
+    scam: { label: "Likely Scam", reason: "Entity not found in SEBI/RBI registered-entity list. Classic urgency + guaranteed-return pattern." },
+    safe: { label: "Safe", reason: "Matches a registered bank offering. No pressure tactics detected." },
+    unclear: { label: "Caution — Not Sure", reason: "Couldn't verify confidently. A human will call you back within 4 working hours." },
+  },
+};
+
+function ScamScreen({ lang, name, onBack }) {
+  const t = T[lang];
+  const examples = SCAM_EXAMPLES[lang];
+  const config = {
+    scam: { icon: ShieldAlert, color: "#C1443A", bg: "#F8E3E0" },
+    safe: { icon: ShieldCheck, color: "#3F7D58", bg: "#E3EEE6" },
+    unclear: { icon: ShieldQuestion, color: "#E1A32A", bg: "#FBF0DB" },
+  };
+  const [input, setInput] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [result, setResult] = useState(null);
+
+  const runCheck = (text) => {
+    setInput(text); setResult(null); setChecking(true);
+    setTimeout(() => {
+      const match = examples.find((e) => e.text === text);
+      const verdict = match ? match.verdict : /double|guarantee|otp|urgent|winner|गारंट|రెట్టింపు/i.test(text) ? "scam" : "unclear";
+      setResult(verdict); setChecking(false);
+    }, 1100);
+  };
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title={t.scamTitle} subtitle={t.scamSub} name={name} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        <div className="text-[11px] text-[#1E2A4F]/60 mb-1">{t.tryExample}</div>
+        {examples.map((e, i) => (
+          <button key={i} onClick={() => runCheck(e.text)} className="w-full text-left bg-white rounded-xl px-3 py-2.5 text-[12px] text-[#1E2A4F] shadow-sm hover:shadow-md transition">"{e.text}"</button>
+        ))}
+        <textarea value={input} onChange={(ev) => setInput(ev.target.value)} placeholder={t.scamPh}
+          className="w-full mt-2 rounded-xl border border-[#1E2A4F]/15 bg-white px-3 py-2 text-[12px] h-16 resize-none focus:outline-none focus:ring-2 focus:ring-[#E1A32A]" />
+        <button disabled={!input.trim() || checking} onClick={() => runCheck(input)}
+          className="w-full bg-[#1E2A4F] text-[#FBF3E4] rounded-xl py-2.5 text-[13px] font-semibold disabled:opacity-40 flex items-center justify-center gap-2">
+          {checking ? t.checking : t.checkBtn}{!checking && <ArrowRight size={14} />}
+        </button>
+        {checking && <div className="text-center text-[11px] text-[#1E2A4F]/50 pt-2 animate-pulse">{t.checking}</div>}
+        {result && !checking && (
+          <div className="rounded-2xl p-4 mt-1 shadow-sm border" style={{ background: config[result].bg, borderColor: config[result].color + "40" }}>
+            <div className="flex items-center gap-2 mb-1.5">
+              {React.createElement(config[result].icon, { size: 20, color: config[result].color })}
+              <span className="font-bold text-[14px]" style={{ color: config[result].color }}>{SCAM_REASON[lang][result].label}</span>
+            </div>
+            <p className="text-[11.5px] text-[#1E2A4F]/80 leading-snug">{SCAM_REASON[lang][result].reason}</p>
+            <div className="flex gap-2 mt-3">
+              <button className="text-[10.5px] font-semibold bg-white rounded-full px-3 py-1.5 text-[#1E2A4F] flex items-center gap-1"><HelpCircle size={11} /> {t.why}</button>
+              <button className="text-[10.5px] font-semibold bg-white rounded-full px-3 py-1.5 text-[#1E2A4F] flex items-center gap-1"><Phone size={11} /> {t.human}</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const SCHEME_QUESTIONS = {
+  hi: [
+    { q: "आपका काम क्या है?", options: ["डिलीवरी / गिग राइडर", "स्ट्रीट वेंडर", "किसान", "गृहिणी"] },
+    { q: "क्या आपके पास बैंक खाता है?", options: ["हाँ, PMJDY / जन धन", "हाँ, नियमित खाता", "अभी नहीं है"] },
+  ],
+  te: [
+    { q: "మీ పని ఏమిటి?", options: ["డెలివరీ / గిగ్ రైడర్", "వీధి వ్యాపారి", "రైతు", "గృహిణి"] },
+    { q: "మీకు బ్యాంక్ ఖాతా ఉందా?", options: ["అవును, PMJDY / జన్ ధన్", "అవును, రెగ్యులర్ ఖాతా", "ఇంకా లేదు"] },
+  ],
+  en: [
+    { q: "What best describes your work?", options: ["Delivery / gig rider", "Street vendor", "Farmer", "Homemaker"] },
+    { q: "Do you have a bank account?", options: ["Yes, PMJDY / Jan Dhan", "Yes, regular account", "No account yet"] },
+  ],
+};
+
+const SCHEME_RESULTS = {
+  hi: {
+    gig: [{ name: "e-Shram पंजीकरण", why: "गिग वर्कर्स के लिए दुर्घटना कवर और सामाजिक सुरक्षा" }, { name: "PMSBY", why: "₹20/वर्ष में ₹2 लाख का दुर्घटना कवर" }],
+    default: [{ name: "PM SVANidhi", why: "बिना गारंटी के ₹10,000 तक का कार्यशील पूंजी ऋण" }, { name: "PMJJBY", why: "₹436/वर्ष में ₹2 लाख का जीवन बीमा" }],
+  },
+  te: {
+    gig: [{ name: "e-Shram నమోదు", why: "గిగ్ వర్కర్ల కోసం ప్రమాద కవర్ & సామాజిక భద్రత" }, { name: "PMSBY", why: "సంవత్సరానికి ₹20కి ₹2 లక్షల ప్రమాద కవర్" }],
+    default: [{ name: "PM SVANidhi", why: "హామీ లేకుండా ₹10,000 వరకు వర్కింగ్ క్యాపిటల్ లోన్" }, { name: "PMJJBY", why: "సంవత్సరానికి ₹436కి ₹2 లక్షల జీవిత బీమా" }],
+  },
+  en: {
+    gig: [{ name: "e-Shram Registration", why: "Unlocks accident cover & portable social security for gig workers" }, { name: "PMSBY", why: "₹2 lakh accident cover for ₹20/year" }],
+    default: [{ name: "PM SVANidhi", why: "Working-capital loan up to ₹10,000, no collateral" }, { name: "PMJJBY", why: "₹2 lakh life cover for ₹436/year" }],
+  },
+};
+
+function SchemeScreen({ lang, name, onBack }) {
+  const t = T[lang];
+  const questions = SCHEME_QUESTIONS[lang];
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState([]);
+  const pick = (opt) => { setAnswers([...answers, opt]); setStep((s) => s + 1); };
+  const reset = () => { setStep(0); setAnswers([]); };
+  const firstIsGig = answers[0] === questions[0].options[0];
+  const results = SCHEME_RESULTS[lang][firstIsGig ? "gig" : "default"];
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title={t.schemeTitle} subtitle={t.schemeSub} name={name} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
+        {step < questions.length ? (
+          <div>
+            <div className="text-[10px] font-semibold text-[#E1A32A] mb-1">{t.qLabel.toUpperCase()} {step + 1} / {questions.length}</div>
+            <div className="text-[15px] font-semibold text-[#1E2A4F] mb-4">{questions[step].q}</div>
+            <div className="space-y-2">
+              {questions[step].options.map((opt) => (
+                <button key={opt} onClick={() => pick(opt)} className="w-full text-left bg-white rounded-xl px-4 py-3 text-[12.5px] text-[#1E2A4F] shadow-sm hover:bg-[#E1A32A]/10 transition flex items-center justify-between">
+                  {opt} <ChevronRight size={14} className="opacity-40" />
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="text-[13px] font-semibold text-[#1E2A4F] mb-3">{t.resultIntro}</div>
+            <div className="space-y-2.5">
+              {results.map((r) => (
+                <div key={r.name} className="bg-white rounded-xl p-3.5 shadow-sm border border-[#3F7D58]/20">
+                  <div className="flex items-center gap-2 font-semibold text-[13px] text-[#3F7D58]"><Landmark size={14} /> {r.name}</div>
+                  <div className="text-[11px] text-[#1E2A4F]/70 mt-1">{r.why}</div>
+                </div>
+              ))}
+            </div>
+            <button onClick={reset} className="mt-4 text-[11px] font-semibold text-[#1E2A4F]/60 underline">{t.startOver}</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AainaScreen({ lang, name, onBack, goTo, goals }) {
+  const t = T[lang];
+  const [extra, setExtra] = useState(50);
+  const baseline = 3000;
+  const projected = baseline + extra * 17;
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title={t.aainaTitle} subtitle={t.aainaSub} name={name} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-4 py-5">
+        <div className="text-center mb-1"><Sparkles className="mx-auto text-[#E1A32A]" size={22} /></div>
+        <div className="text-center text-[12px] text-[#1E2A4F]/60 mb-3 leading-snug px-2">{t.goalLabel}</div>
+        <button onClick={() => goTo("goalSetup")} className="w-full mb-4 bg-white border-2 border-dashed border-[#1E2A4F]/25 text-[#1E2A4F] rounded-xl py-2.5 text-[12.5px] font-semibold">
+          {t.newGoalBtn}
+        </button>
+
+        <div className="mb-5">
+          <div className="text-[11px] font-semibold text-[#1E2A4F]/60 mb-2 px-0.5">{t.savedGoalsLabel}</div>
+          {goals.length === 0 ? (
+            <div className="bg-white rounded-xl p-4 text-center text-[11.5px] text-[#1E2A4F]/40">{t.noGoalsYet}</div>
+          ) : (
+            <div className="space-y-2">
+              {goals.map((g) => (
+                <div key={g.id} className="bg-white rounded-xl p-3.5 shadow-sm flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#6C63C9]/10 flex items-center justify-center shrink-0">
+                    <Target size={15} color="#6C63C9" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12.5px] font-semibold text-[#1E2A4F] truncate">{g.name}</div>
+                    <div className="text-[10px] text-[#1E2A4F]/45">₹{g.amount.toLocaleString("en-IN")} · {g.optionName}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[12.5px] font-bold text-[#3F7D58]">₹{g.monthly.toLocaleString("en-IN")}{t.perMonth}</div>
+                    <div className="text-[9.5px] text-[#1E2A4F]/40">{g.monthsLeft} {t.monthsLeftLabel}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <div className="bg-white rounded-2xl p-3 text-center shadow-sm">
+            <div className="text-[10px] text-[#1E2A4F]/50 font-semibold mb-2">{t.todayCol.toUpperCase()}</div>
+            <div className="h-24 flex items-end justify-center"><div className="w-10 bg-[#1E2A4F]/25 rounded-t-lg" style={{ height: "45%" }} /></div>
+            <div className="text-[15px] font-bold text-[#1E2A4F] mt-2">₹{baseline.toLocaleString("en-IN")}</div>
+            <div className="text-[9.5px] text-[#1E2A4F]/45">{t.savedBy}</div>
+          </div>
+          <div className="bg-white rounded-2xl p-3 text-center shadow-sm border-2 border-[#E1A32A]">
+            <div className="text-[10px] text-[#E1A32A] font-semibold mb-2">{t.stepCol.toUpperCase()}</div>
+            <div className="h-24 flex items-end justify-center"><div className="w-10 bg-[#3F7D58] rounded-t-lg transition-all duration-300" style={{ height: `${Math.min(95, 45 + extra * 0.9)}%` }} /></div>
+            <div className="text-[15px] font-bold text-[#3F7D58] mt-2">₹{projected.toLocaleString("en-IN")}</div>
+            <div className="text-[9.5px] text-[#1E2A4F]/45">{t.savedBy}</div>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="text-[11px] font-semibold text-[#1E2A4F] mb-2">₹{extra} — {t.saveExtra}</div>
+          <input type="range" min="0" max="200" step="10" value={extra} onChange={(e) => setExtra(Number(e.target.value))} className="w-full accent-[#E1A32A]" />
+          <div className="flex justify-between text-[9px] text-[#1E2A4F]/40 mt-1"><span>₹0</span><span>₹200/week</span></div>
+        </div>
+        <button className="w-full mt-4 bg-[#3F7D58] text-white rounded-xl py-2.5 text-[13px] font-semibold flex items-center justify-center gap-2"><TrendingUp size={14} /> {t.setNudge}</button>
+        <div className="text-center text-[9.5px] text-[#1E2A4F]/40 mt-3">{t.onceMonth}</div>
+      </div>
+    </div>
+  );
+}
+
+function FinancesScreen({ lang, name, onBack, initial, onSave }) {
+  const t = T[lang];
+  const [income, setIncome] = useState(initial.income ? String(initial.income) : "");
+  const [savings, setSavings] = useState(initial.savings ? String(initial.savings) : "");
+  const [expenses, setExpenses] = useState(initial.expenses ? String(initial.expenses) : "");
+
+  const overBudget = Number(savings) + Number(expenses) > Number(income) && Number(income) > 0;
+  const canSave = Number(income) > 0;
+
+  const save = () => {
+    onSave({ income: Number(income) || 0, savings: Number(savings) || 0, expenses: Number(expenses) || 0 });
+  };
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title={t.financesTitle} subtitle={t.financesSub} name={name} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-5 py-6 space-y-4">
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5">
+            <Wallet size={12} /> {t.incomeLabel}
+          </label>
+          <input
+            type="text" value={income} onChange={(e) => setIncome(e.target.value.replace(/\D/g, ""))} placeholder={t.incomePh}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[16px] font-semibold focus:outline-none focus:ring-2 focus:ring-[#E1A32A]"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5">
+            <PiggyBank size={12} /> {t.savingsLabel}
+          </label>
+          <input
+            type="text" value={savings} onChange={(e) => setSavings(e.target.value.replace(/\D/g, ""))} placeholder={t.savingsPh}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[16px] font-semibold focus:outline-none focus:ring-2 focus:ring-[#E1A32A]"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5">
+            <Receipt size={12} /> {t.expensesLabel}
+          </label>
+          <input
+            type="text" value={expenses} onChange={(e) => setExpenses(e.target.value.replace(/\D/g, ""))} placeholder={t.expensesPh}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[16px] font-semibold focus:outline-none focus:ring-2 focus:ring-[#E1A32A]"
+          />
+        </div>
+
+        {overBudget && (
+          <div className="bg-[#C1443A]/10 text-[#C1443A] text-[11px] font-medium rounded-xl p-3">{t.overBudgetWarning}</div>
+        )}
+
+        <button
+          disabled={!canSave}
+          onClick={save}
+          className="w-full bg-[#1E2A4F] text-[#FBF3E4] rounded-xl py-3 text-[13.5px] font-bold disabled:opacity-30 flex items-center justify-center gap-2"
+        >
+          {t.saveFinancesBtn} <ArrowRight size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function GoalSetupScreen({ lang, name, onBack, onSave }) {
+  const t = T[lang];
+  const [goalName, setGoalName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState("");
+  const [returnRate, setReturnRate] = useState(10);
+  const [done, setDone] = useState(false);
+
+  const monthsLeft = (() => {
+    if (!date) return 0;
+    const target = new Date(date);
+    const now = new Date();
+    let months = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+    if (target.getDate() < now.getDate()) months -= 1;
+    return Math.max(1, months);
+  })();
+
+  // SIP formula: solve monthly investment P such that future value of a monthly
+  // annuity-due at the chosen annual return reaches the goal amount by the due date.
+  const monthly = (() => {
+    if (!date || !Number(amount) || monthsLeft < 1) return 0;
+    const target = Number(amount);
+    const r = returnRate / 100 / 12;
+    if (r === 0) return Math.ceil(target / monthsLeft);
+    const factor = ((Math.pow(1 + r, monthsLeft) - 1) / r) * (1 + r);
+    return Math.ceil(target / factor);
+  })();
+
+  const canSet = goalName.trim() && Number(amount) > 0 && date && monthly > 0;
+
+  const option =
+    returnRate <= 6 ? { key: "optSafe", name: t.optSafeName, desc: t.optSafeDesc, color: "#3F7D58" } :
+    returnRate <= 9 ? { key: "optBal", name: t.optBalName, desc: t.optBalDesc, color: "#E1A32A" } :
+    returnRate <= 13 ? { key: "optGrow", name: t.optGrowName, desc: t.optGrowDesc, color: "#6C63C9" } :
+    { key: "optAgg", name: t.optAggName, desc: t.optAggDesc, color: "#C1443A" };
+
+  const handleSave = () => {
+    onSave({
+      id: Date.now(),
+      name: goalName,
+      amount: Number(amount),
+      date,
+      returnRate,
+      monthly,
+      monthsLeft,
+      optionName: option.name,
+    });
+    setDone(true);
+  };
+
+  if (done) {
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        <TopBar title={t.goalSetupTitle} subtitle={t.goalSetupSub} name={name} onBack={onBack} />
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <div className="w-16 h-16 rounded-full bg-[#3F7D58] flex items-center justify-center mb-4">
+            <Check size={30} className="text-white" />
+          </div>
+          <div className="text-[16px] font-bold text-[#1E2A4F] mb-1">{t.goalSuccessTitle}</div>
+          <div className="text-[12px] text-[#1E2A4F]/60 mb-1">{goalName} — ₹{Number(amount).toLocaleString("en-IN")}</div>
+          <div className="text-[11px] text-[#3F7D58] mb-6">{t.goalSuccessSub}</div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm w-full mb-6">
+            <div className="text-[10.5px] font-semibold text-[#1E2A4F]/60 mb-1">{t.monthlyLabel}</div>
+            <div className="text-[22px] font-bold text-[#3F7D58]">₹{monthly.toLocaleString("en-IN")}<span className="text-[11px] font-medium text-[#1E2A4F]/50">{t.perMonth}</span></div>
+            <div className="text-[10.5px] text-[#1E2A4F]/45 mt-1">{monthsLeft} {t.monthsLeftLabel} · {option.name}</div>
+          </div>
+          <button onClick={onBack} className="bg-[#1E2A4F] text-white rounded-xl px-6 py-2.5 text-[12.5px] font-semibold">{t.doneBtnGoal}</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title={t.goalSetupTitle} subtitle={t.goalSetupSub} name={name} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-5 py-6 space-y-4">
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5">
+            <Target size={12} /> {t.goalNameLabel}
+          </label>
+          <input
+            type="text" value={goalName} onChange={(e) => setGoalName(e.target.value)} placeholder={t.goalNamePh}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#E1A32A]"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5">
+            <IndianRupee size={12} /> {t.goalAmountLabel}
+          </label>
+          <input
+            type="text" value={amount} onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))} placeholder={t.goalAmountPh}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[16px] font-semibold focus:outline-none focus:ring-2 focus:ring-[#E1A32A]"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5">
+            <Sparkles size={12} /> {t.goalDateLabel}
+          </label>
+          <input
+            type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().slice(0, 10)}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#E1A32A]"
+          />
+        </div>
+
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-semibold text-[#1E2A4F]/70">{t.expectedReturnLabel}</span>
+            <span className="text-[13px] font-bold text-[#E1A32A]">{returnRate}%</span>
+          </div>
+          <input
+            type="range" min="4" max="16" step="1" value={returnRate}
+            onChange={(e) => setReturnRate(Number(e.target.value))}
+            className="w-full accent-[#E1A32A]"
+          />
+          <div className="flex justify-between text-[9px] text-[#1E2A4F]/40 mt-1"><span>4%</span><span>16%</span></div>
+        </div>
+
+        {monthly > 0 && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-[#E1A32A]/40">
+            <div className="text-[10.5px] font-semibold text-[#1E2A4F]/60 mb-1">{t.monthlyLabel}</div>
+            <div className="text-[24px] font-bold text-[#3F7D58]">₹{monthly.toLocaleString("en-IN")}<span className="text-[12px] font-medium text-[#1E2A4F]/50">{t.perMonth}</span></div>
+            <div className="text-[10.5px] text-[#1E2A4F]/45 mt-1">{monthsLeft} {t.monthsLeftLabel}</div>
+          </div>
+        )}
+
+        {monthly > 0 && (
+          <div>
+            <div className="text-[11px] font-semibold text-[#1E2A4F]/60 mb-2 px-0.5">{t.investmentOptionsLabel}</div>
+            <div className="bg-white rounded-xl p-3.5 shadow-sm flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: option.color + "1A" }}>
+                <PiggyBank size={16} color={option.color} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-bold" style={{ color: option.color }}>{option.name}</div>
+                <div className="text-[11px] text-[#1E2A4F]/60 mt-0.5 leading-snug">{option.desc}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <button
+          disabled={!canSet}
+          onClick={handleSave}
+          className="w-full bg-[#1E2A4F] text-[#FBF3E4] rounded-xl py-3 text-[13.5px] font-bold disabled:opacity-30 flex items-center justify-center gap-2"
+        >
+          {t.setGoalBtn} <ArrowRight size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const INVESTMENT_CATALOG = [
+  { key: "rd", rate: 5.5, risk: "riskLabelSafe", icon: PiggyBank, color: "#3F7D58" },
+  { key: "ppf", rate: 7.1, risk: "riskLabelSafe", icon: PiggyBank, color: "#3F7D58" },
+  { key: "nsc", rate: 7.7, risk: "riskLabelSafe", icon: Receipt, color: "#3F7D58" },
+  { key: "debtmf", rate: 7.5, risk: "riskLabelLow", icon: Wallet, color: "#E1A32A" },
+  { key: "sgb", rate: 8.0, risk: "riskLabelMod", icon: Target, color: "#E1A32A" },
+  { key: "nps", rate: 9.5, risk: "riskLabelMod", icon: Landmark, color: "#E1A32A" },
+  { key: "elss", rate: 12.0, risk: "riskLabelMkt", icon: TrendingUp, color: "#C1443A" },
+  { key: "index", rate: 12.5, risk: "riskLabelMkt", icon: TrendingUp, color: "#C1443A" },
+  { key: "equity", rate: 13.0, risk: "riskLabelMkt", icon: TrendingUp, color: "#C1443A" },
+];
+
+const INVESTMENT_NAMES = {
+  hi: { rd: "रिकरिंग डिपॉजिट (RD)", ppf: "पब्लिक प्रोविडेंट फंड (PPF)", nsc: "नेशनल सेविंग्स सर्टिफिकेट", debtmf: "डेट म्यूचुअल फंड", sgb: "सॉवरेन गोल्ड बॉन्ड", nps: "नेशनल पेंशन सिस्टम (NPS)", elss: "ELSS टैक्स-सेविंग फंड", index: "इंडेक्स फंड SIP (निफ्टी 50)", equity: "इक्विटी म्यूचुअल फंड SIP" },
+  te: { rd: "రికరింగ్ డిపాజిట్ (RD)", ppf: "పబ్లిక్ ప్రావిడెంట్ ఫండ్ (PPF)", nsc: "నేషనల్ సేవింగ్స్ సర్టిఫికేట్", debtmf: "డెట్ మ్యూచువల్ ఫండ్", sgb: "సావరిన్ గోల్డ్ బాండ్", nps: "నేషనల్ పెన్షన్ సిస్టమ్ (NPS)", elss: "ELSS టాక్స్-సేవింగ్ ఫండ్", index: "ఇండెక్స్ ఫండ్ SIP (నిఫ్టీ 50)", equity: "ఈక్విటీ మ్యూచువల్ ఫండ్ SIP" },
+  en: { rd: "Recurring Deposit (RD)", ppf: "Public Provident Fund (PPF)", nsc: "National Savings Certificate", debtmf: "Debt Mutual Fund", sgb: "Sovereign Gold Bond", nps: "National Pension System (NPS)", elss: "ELSS Tax-saving Fund", index: "Index Fund SIP (Nifty 50)", equity: "Equity Mutual Fund SIP" },
+};
+
+function calcMonthsNeeded(monthly, target, annualPct) {
+  if (!monthly || !target) return 0;
+  const r = annualPct / 100 / 12;
+  if (r === 0) return Math.ceil(target / monthly);
+  const inner = (target * r) / (monthly * (1 + r)) + 1;
+  if (inner <= 0) return 0;
+  return Math.ceil(Math.log(inner) / Math.log(1 + r));
+}
+
+function formatDuration(months, t) {
+  if (months <= 0) return "—";
+  if (months < 12) return `${months} ${t.monthsShort}`;
+  const y = Math.floor(months / 12);
+  const m = months % 12;
+  return m > 0 ? `${y}${t.yearsShort} ${m}${t.monthsShort}` : `${y} ${t.yearsShort}`;
+}
+
+function InvestmentsScreen({ lang, name, onBack }) {
+  const t = T[lang];
+  const [monthly, setMonthly] = useState("");
+  const [returnPct, setReturnPct] = useState(10);
+  const [goalAmount, setGoalAmount] = useState("");
+
+  const ready = Number(monthly) > 0 && Number(goalAmount) > 0;
+  const headlineMonths = ready ? calcMonthsNeeded(Number(monthly), Number(goalAmount), returnPct) : 0;
+
+  const options = INVESTMENT_CATALOG
+    .map((opt) => ({
+      ...opt,
+      name: INVESTMENT_NAMES[lang][opt.key],
+      months: ready ? calcMonthsNeeded(Number(monthly), Number(goalAmount), opt.rate) : 0,
+      isMatch: Math.abs(opt.rate - returnPct) <= 1,
+    }))
+    .sort((a, b) => a.months - b.months);
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title={t.invTitle} subtitle={t.invSub} name={name} onBack={onBack} />
+      <div className="flex-1 overflow-y-auto px-5 py-6 space-y-4">
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5">
+            <IndianRupee size={12} /> {t.monthlyAmountLabel}
+          </label>
+          <input
+            type="text" value={monthly} onChange={(e) => setMonthly(e.target.value.replace(/\D/g, ""))} placeholder={t.monthlyAmountPh}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[16px] font-semibold focus:outline-none focus:ring-2 focus:ring-[#E1A32A]"
+          />
+        </div>
+
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5">
+            <Target size={12} /> {t.goalAmountLabel}
+          </label>
+          <input
+            type="text" value={goalAmount} onChange={(e) => setGoalAmount(e.target.value.replace(/\D/g, ""))} placeholder={t.goalAmountPh}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[16px] font-semibold focus:outline-none focus:ring-2 focus:ring-[#E1A32A]"
+          />
+        </div>
+
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-semibold text-[#1E2A4F]/70">{t.expectedReturnLabel}</span>
+            <span className="text-[13px] font-bold text-[#E1A32A]">{returnPct}% {t.ratePerAnnum}</span>
+          </div>
+          <input
+            type="range" min="4" max="16" step="1" value={returnPct}
+            onChange={(e) => setReturnPct(Number(e.target.value))}
+            className="w-full accent-[#E1A32A]"
+          />
+          <div className="flex justify-between text-[9px] text-[#1E2A4F]/40 mt-1"><span>4%</span><span>16%</span></div>
+        </div>
+
+        {ready ? (
+          <>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border-2 border-[#E1A32A]/40 text-center">
+              <div className="text-[10.5px] font-semibold text-[#1E2A4F]/60 mb-1">{t.timeRequiredLabel}</div>
+              <div className="text-[26px] font-bold text-[#3F7D58]">{formatDuration(headlineMonths, t)}</div>
+              <div className="text-[10.5px] text-[#1E2A4F]/45 mt-1">₹{Number(monthly).toLocaleString("en-IN")}{t.perMonth} @ {returnPct}% {t.ratePerAnnum}</div>
+            </div>
+
+            <div>
+              <div className="text-[11px] font-semibold text-[#1E2A4F]/60 mb-2 px-0.5">{t.legalOptionsLabel}</div>
+              <div className="space-y-2">
+                {options.map((opt) => {
+                  const Icon = opt.icon;
+                  return (
+                    <div key={opt.key} className="bg-white rounded-xl p-3.5 shadow-sm flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: opt.color + "1A" }}>
+                        <Icon size={16} color={opt.color} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[12.5px] font-bold text-[#1E2A4F]">{opt.name}</span>
+                          {opt.isMatch && (
+                            <span className="text-[8.5px] font-semibold bg-[#E1A32A]/20 text-[#9A6B0A] px-1.5 py-0.5 rounded-full">{t.matchBadge}</span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-[#1E2A4F]/50 mt-0.5">{opt.rate}% {t.ratePerAnnum} · {t[opt.risk]}</div>
+                      </div>
+                      <div className="text-[13px] font-bold shrink-0" style={{ color: opt.color }}>{formatDuration(opt.months, t)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="text-center text-[11.5px] text-[#1E2A4F]/40 py-6">{t.fillAllFields}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SendMoneyScreen({ lang, name, onBack, transactions, addTransaction }) {
+  const t = T[lang];
+  const [tab, setTab] = useState("send"); // send | history
+  const [recipient, setRecipient] = useState("");
+  const [amount, setAmount] = useState("");
+  const [step, setStep] = useState("form"); // form -> sending -> success
+  // 4.6% reflects the average end-to-end cost of a domestic Indian remittance through an
+  // informal agent (formal fee + informal costs like travel/bribes) — CGAP/IFMR-RBI field study.
+  const shopFee = Math.round((Number(amount) || 0) * 0.046);
+
+  const send = () => {
+    if (!recipient.trim() || !Number(amount)) return;
+    setStep("sending");
+    setTimeout(() => {
+      addTransaction({
+        id: Date.now(),
+        recipient,
+        amount: Number(amount),
+        timestamp: new Date().toISOString(),
+      });
+      setStep("success");
+    }, 1200);
+  };
+
+  const reset = () => { setStep("form"); setRecipient(""); setAmount(""); };
+
+  const TabBar = () => (
+    <div className="flex bg-white/70 rounded-xl p-1 mx-5 mt-3 mb-1 shrink-0">
+      {["send", "history"].map((id) => (
+        <button
+          key={id}
+          onClick={() => setTab(id)}
+          className={`flex-1 py-2 rounded-lg text-[12px] font-semibold transition ${
+            tab === id ? "bg-[#1E2A4F] text-[#FBF3E4]" : "text-[#1E2A4F]/50"
+          }`}
+        >
+          {id === "send" ? t.sendTab : t.historyTab}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (step === "success") {
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        <TopBar title={t.sendTitle} subtitle={t.sendSub} name={name} onBack={onBack} />
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <div className="w-16 h-16 rounded-full bg-[#3F7D58] flex items-center justify-center mb-4">
+            <Check size={30} className="text-white" />
+          </div>
+          <div className="text-[16px] font-bold text-[#1E2A4F] mb-1">{t.successTitle}</div>
+          <div className="text-[12px] text-[#1E2A4F]/60 mb-1">₹{Number(amount).toLocaleString("en-IN")} → {recipient}</div>
+          <div className="text-[11px] text-[#3F7D58] mb-6">{t.successSub}</div>
+          <button onClick={reset} className="bg-[#1E2A4F] text-[#FBF3E4] rounded-xl px-5 py-2.5 text-[12.5px] font-semibold">
+            {t.newTransfer}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (tab === "history") {
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        <TopBar title={t.sendTitle} subtitle={t.historyLabel} name={name} onBack={onBack} />
+        <TabBar />
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+          {transactions.length === 0 ? (
+            <div className="text-center text-[12px] text-[#1E2A4F]/40 mt-10">{t.noHistoryYet}</div>
+          ) : (
+            transactions.slice().reverse().map((tx) => {
+              const d = new Date(tx.timestamp);
+              return (
+                <div key={tx.id} className="bg-white rounded-xl p-3.5 shadow-sm flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#3F7D58]/10 flex items-center justify-center shrink-0">
+                    <Send size={15} color="#3F7D58" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12.5px] font-semibold text-[#1E2A4F] truncate">{t.toLabel} {tx.recipient}</div>
+                    <div className="text-[10px] text-[#1E2A4F]/45">{d.toLocaleDateString()} · {d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
+                  </div>
+                  <div className="text-[13px] font-bold text-[#3F7D58] shrink-0">₹{tx.amount.toLocaleString("en-IN")}</div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <TopBar title={t.sendTitle} subtitle={t.sendSub} name={name} onBack={onBack} />
+      <TabBar />
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5">
+            <User size={12} /> {t.recipientLabel}
+          </label>
+          <input
+            type="text"
+            value={recipient}
+            onChange={(e) => setRecipient(e.target.value)}
+            placeholder={t.recipientPh}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[13px] focus:outline-none focus:ring-2 focus:ring-[#E1A32A]"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] font-semibold text-[#1E2A4F]/70 flex items-center gap-1.5 mb-1.5">
+            <IndianRupee size={12} /> {t.amountLabel}
+          </label>
+          <input
+            type="text"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
+            placeholder={t.amountPh}
+            className="w-full rounded-xl border border-[#1E2A4F]/15 bg-white px-3.5 py-2.5 text-[16px] font-semibold focus:outline-none focus:ring-2 focus:ring-[#E1A32A]"
+          />
+        </div>
+
+        {Number(amount) > 0 && (
+          <div className="bg-white rounded-xl p-3.5 shadow-sm">
+            <div className="text-[10.5px] font-semibold text-[#1E2A4F]/70 mb-2">{t.feeCompareTitle}</div>
+            <div className="flex items-center justify-between text-[12px] py-1">
+              <span className="text-[#1E2A4F]/60">{t.shopFeeLabel}</span>
+              <span className="font-semibold text-[#C1443A]">₹{shopFee}</span>
+            </div>
+            <div className="flex items-center justify-between text-[12px] py-1 border-t border-[#1E2A4F]/10 mt-1 pt-2">
+              <span className="text-[#1E2A4F]/60">{t.appFeeLabel}</span>
+              <span className="font-semibold text-[#3F7D58]">₹0</span>
+            </div>
+            <div className="text-[9px] text-[#1E2A4F]/35 mt-2">{t.feeSourceNote}</div>
+          </div>
+        )}
+
+        <button
+          disabled={!recipient.trim() || !Number(amount) || step === "sending"}
+          onClick={send}
+          className="w-full bg-[#E1A32A] text-[#1E2A4F] rounded-xl py-3 text-[13.5px] font-bold disabled:opacity-30 flex items-center justify-center gap-2"
+        >
+          {step === "sending" ? "…" : t.reviewBtn}
+          {step !== "sending" && <Send size={14} />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+export default function ArthaBotPrototype() {
+  const [stage, setStage] = useState("language");
+  const [lang, setLang] = useState("en");
+  const [screen, setScreen] = useState("home");
+  const [navStack, setNavStack] = useState([]);
+  const [profile, setProfile] = useState({ name: "", mobile: "" });
+  const [showHelp, setShowHelp] = useState(false);
+  const [goals, setGoals] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [finances, setFinances] = useState({ income: 0, savings: 0, expenses: 0 });
+  const [syncStatus, setSyncStatus] = useState("idle"); // idle | syncing | synced | error
+
+  const goToApp = () => setStage("app");
+
+  // Best-effort push to Google Sheets. Silently no-ops if CLOUD_SYNC_ENABLED is false
+  // (no URL configured yet) or if the network call fails — local state is always
+  // the source of truth for the current session either way.
+  const syncToCloud = (payload) => {
+    if (!CLOUD_SYNC_ENABLED || !profile.mobile) return;
+    setSyncStatus("syncing");
+    fetch(SHEETS_API_URL, {
+      method: "POST",
+      body: JSON.stringify({ mobile: profile.mobile, name: profile.name, ...payload }),
+    })
+      .then(() => setSyncStatus("synced"))
+      .catch(() => setSyncStatus("error"));
+  };
+
+  // Pull any previously-saved data for this mobile number right after login.
+  const loadFromCloud = async (mobile) => {
+    if (!CLOUD_SYNC_ENABLED || !mobile) return;
+    try {
+      setSyncStatus("syncing");
+      const res = await fetch(`${SHEETS_API_URL}?mobile=${encodeURIComponent(mobile)}`);
+      const data = await res.json();
+      if (data.finances && data.finances.income) setFinances(data.finances);
+      if (Array.isArray(data.goals)) setGoals(data.goals);
+      if (Array.isArray(data.transactions)) setTransactions(data.transactions);
+      setSyncStatus("synced");
+    } catch (err) {
+      setSyncStatus("error");
+    }
+  };
+
+  const addGoal = (goal) => {
+    const updated = [...goals, goal];
+    setGoals(updated);
+    syncToCloud({ finances, goals: updated, transactions });
+  };
+  const addTransaction = (tx) => {
+    const updated = [...transactions, tx];
+    setTransactions(updated);
+    syncToCloud({ finances, goals, transactions: updated });
+  };
+  const saveFinances = (f) => {
+    setFinances(f);
+    syncToCloud({ finances: f, goals, transactions });
+  };
+
+  // navigate() pushes the current screen onto the history stack before moving forward.
+  const navigate = (next) => {
+    if (next === screen) return;
+    setNavStack((s) => [...s, screen]);
+    setScreen(next);
+  };
+
+  // goBack() pops exactly one step off the stack (falls back to Home if empty).
+  const goBack = () => {
+    setNavStack((s) => {
+      if (s.length === 0) {
+        setScreen("home");
+        return s;
+      }
+      const copy = [...s];
+      const prev = copy.pop();
+      setScreen(prev);
+      return copy;
+    });
+  };
+
+  const renderInner = () => {
+    if (showHelp) return <HelpScreen lang={lang} name={profile.name} onBack={() => setShowHelp(false)} />;
+    if (stage === "language") return <LanguageScreen onSelect={(code) => { setLang(code); setStage("register"); }} />;
+    if (stage === "register")
+      return (
+        <RegisterScreen
+          lang={lang}
+          onBack={() => setStage("language")}
+          onDone={(p) => { setProfile(p); goToApp(); setScreen("finances"); loadFromCloud(p.mobile); }}
+        />
+      );
+    const commonProps = { lang, name: profile.name, onBack: goBack };
+    switch (screen) {
+      case "home": return <HomeScreen lang={lang} name={profile.name} goTo={navigate} goals={goals} finances={finances} />;
+      case "chat": return <ChatScreen {...commonProps} />;
+      case "send": return <SendMoneyScreen {...commonProps} transactions={transactions} addTransaction={addTransaction} />;
+      case "scam": return <ScamScreen {...commonProps} />;
+      case "scheme": return <SchemeScreen {...commonProps} />;
+      case "aaina": return <AainaScreen {...commonProps} goTo={navigate} goals={goals} />;
+      case "goalSetup": return <GoalSetupScreen lang={lang} name={profile.name} onBack={goBack} onSave={addGoal} />;
+      case "investments": return <InvestmentsScreen lang={lang} name={profile.name} onBack={goBack} />;
+      case "finances": return <FinancesScreen lang={lang} name={profile.name} onBack={goBack} initial={finances} onSave={(f) => { saveFinances(f); goBack(); }} />;
+      default: return null;
+    }
+  };
+
+  const t = T[lang];
+  const showBottomNav = stage === "app";
+  const showFab = !showHelp;
+  const selectTab = (id) => { setShowHelp(false); navigate(id); };
+
+  return (
+    <div
+      className="app-shell w-full flex justify-center overflow-hidden"
+      style={{ fontFamily: "'Poppins', 'Inter', sans-serif", backgroundColor: "#87CEEB" }}
+    >
+      <style>{`
+        html, body { background-color: #87CEEB; margin: 0; height: 100%; overflow: hidden; }
+        .app-shell { height: 100vh; height: 100dvh; }
+        .app-inner { height: 100vh; height: 100dvh; }
+      `}</style>
+      <div
+        className="app-inner w-full max-w-[440px] flex flex-col overflow-hidden relative sm:shadow-2xl"
+        style={{ backgroundColor: "#DCEEFB" }}
+      >
+        {renderInner()}
+        {CLOUD_SYNC_ENABLED && stage === "app" && (
+          <div className="absolute left-3 z-20 bg-white/90 rounded-full px-2.5 py-1 text-[9px] font-semibold text-[#1E2A4F]/60 shadow-sm flex items-center gap-1" style={{ bottom: showBottomNav ? "72px" : "16px" }}>
+            {syncStatus === "syncing" && "☁ Syncing…"}
+            {syncStatus === "synced" && "☁ Synced"}
+            {syncStatus === "error" && "☁ Sync failed"}
+            {syncStatus === "idle" && "☁ Cloud ready"}
+          </div>
+        )}
+        {showFab && (
+          <button
+            onClick={() => setShowHelp(true)}
+            className="absolute right-4 z-20 bg-[#1E2A4F] text-[#E1A32A] rounded-full shadow-lg flex items-center gap-1.5 px-4 py-3 text-[11.5px] font-semibold hover:bg-[#28365e] transition"
+            style={{ bottom: showBottomNav ? "72px" : "16px" }}
+          >
+            <HelpCircle size={16} /> {t.helpFab}
+          </button>
+        )}
+        {showBottomNav && <BottomNav screen={showHelp ? null : screen} setScreen={selectTab} t={t} />}
+      </div>
+    </div>
+  );
+}
