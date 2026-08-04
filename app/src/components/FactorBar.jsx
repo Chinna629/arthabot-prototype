@@ -16,7 +16,3 @@ export default function FactorBar({ icon: Icon, label, value, color }) {
     </div>
   );
 }
-
-// ---- Financial Health Score engine ----
-// Every factor is derived from what the user has actually entered/done in the
-// app (finances form + goals list) — nothing here is a fixed placeholder.
