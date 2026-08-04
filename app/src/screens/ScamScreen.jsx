@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from "react";
 import { ShieldCheck, ShieldAlert, ShieldQuestion, ArrowRight, Phone, HelpCircle } from "lucide-react";
 import TopBar from "../components/TopBar";
