@@ -16,7 +16,7 @@
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" data-presets='[["react", {"runtime": "classic"}]]'>
+<script type="text/plain" id="app-source">
   const { useState, useRef, useEffect } = React;
 
 const makeIcon = (paths) => {
@@ -1683,6 +1683,11 @@ function ArthaBotPrototype() {
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<ArthaBotPrototype />);
+</script>
+<script>
+  var __src = document.getElementById('app-source').textContent;
+  var __out = Babel.transform(__src, { presets: [["react", { runtime: "classic" }]] }).code;
+  (0, eval)(__out);
 </script>
 </body>
 </html>
