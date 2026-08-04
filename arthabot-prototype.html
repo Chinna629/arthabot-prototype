@@ -16,8 +16,8 @@
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" data-presets="react">
-const { useState, useRef, useEffect } = React;
+<script type="text/babel" data-presets='[["react", {"runtime": "classic"}]]'>
+  const { useState, useRef, useEffect } = React;
 
 const makeIcon = (paths) => {
   const IconComp = ({ size = 16, color = "currentColor", className = "", strokeWidth = 2 }) => (
